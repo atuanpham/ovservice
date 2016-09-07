@@ -10,13 +10,45 @@ NG_HOME = os.environ['NG_HOME']
 WRAPPER_CMD = NG_HOME + '/bin/wrapper/wrapper'
 SERVICES_DIR = NG_HOME + '/services'
 
-TEMP_DIR = '/tmp/ovservice'
+LOG_DIR = '/tmp/ovservice'
 
 def create_dir(dirname):
     try:
         os.makedirs(dirname)
     except OSError:
         pass
+
+def get_service_log_dir(service_name):
+    return LOG_DIR + '/' + service_name
+
+def get_service_pid_file(service_name):
+    service_log_dir= get_service_log_dir(service_name)
+    return service_log_dir + '/pid'
+
+def get_service_log_file(service_name):
+    service_log_dir = get_service_log_dir(service_name)
+    return service_log_dir + '/' + service_name + '.log'
+
+def get_service_pid(service_name):
+    pid = None
+    service_pid_file = get_service_pid_file(service_name)
+    try:
+        with open(service_pid_file, 'r') as pid_file:
+            pid = int(pid_file.read())
+    except IOError:
+        pass
+    return pid
+
+def is_existed_service(service_name):
+    pid = get_service_pid(service_name)
+    if pid != None:
+        return True
+    return False
+
+def store_pid(service_name, pid):
+    service_pid_file = get_service_pid_file(service_name)
+    with open(service_pid_file, 'w') as pid_file:
+        pid_file.write(str(pid))
 
 def run_command(cmd):
     args = shlex.split(cmd)
@@ -33,27 +65,25 @@ def start_mongodb():
 
 @click.group()
 def cli():
-    create_dir(TEMP_DIR)
+    create_dir(LOG_DIR)
 
 @click.command()
 @click.argument('service', type=click.Choice(basic_services + other_services))
 def start(service):
     click.echo('Starting %s service...' % service)
-    TEMP_SERVICE_DIR = TEMP_DIR + '/' + service
-    PID_LOG = TEMP_SERVICE_DIR + '/pid'
-    create_dir(TEMP_SERVICE_DIR)
-    pid = None
 
-    try:
-        with open(PID_LOG, 'r') as pid_log:
-            pid = int(pid_log.read())
-    except IOError:
-        pass
+    service_log_dir = get_service_log_dir(service)
+    create_dir(service_log_dir)
+
+    if is_existed_service(service):
+        return
 
     if service == 'mongodb':
         pid = start_mongodb()
 
-    with open(PID_LOG, 'w') as pid_log:
-        pid_log.write(str(pid))
+    store_pid(service, pid)
 
+    click.echo('%s is started.' % service)
+
+#------------------------------------------------------------------------------#
 cli.add_command(start)
