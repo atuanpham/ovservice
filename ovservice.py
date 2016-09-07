@@ -69,10 +69,10 @@ def delete_pid_file(service_name):
         return False
     return True
 
-def run_command(cmd):
+def run_command(cmd, logfile=os.devnull):
     args = shlex.split(cmd)
-    with open(os.devnull, 'w') as devnull:
-        process = subprocess.Popen(args, stdout=devnull, stderr=subprocess.STDOUT)
+    with open(logfile, 'w') as logfile:
+        process = subprocess.Popen(args, stdout=logfile, stderr=subprocess.STDOUT)
     return process.pid
 
 
@@ -80,7 +80,8 @@ def start_mongodb():
     MONGO_CONFIG = '--config ' + SERVICES_DIR + '/mongodb/mongodb.conf'
     MONGO_CMD = SERVICES_DIR + '/mongodb/bin/mongod'
     cmd = MONGO_CMD + ' ' + MONGO_CONFIG
-    return run_command(cmd)
+    service_log_file = get_service_log_file('mongodb')
+    return run_command(cmd, service_log_file)
 
 def start_service(service):
     service_log_dir = get_service_log_dir(service)
