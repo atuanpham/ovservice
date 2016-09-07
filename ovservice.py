@@ -82,13 +82,7 @@ def start_mongodb():
     cmd = MONGO_CMD + ' ' + MONGO_CONFIG
     return run_command(cmd)
 
-@click.group()
-def cli():
-    create_dir(LOG_DIR)
-
-@click.command()
-@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
-def start(service):
+def start_service(service):
     service_log_dir = get_service_log_dir(service)
     create_dir(service_log_dir)
 
@@ -105,9 +99,7 @@ def start(service):
 
     click.echo('%s is started.' % service)
 
-@click.command()
-@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
-def stop(service):
+def stop_service(service):
     pid = get_service_pid(service)
 
     if pid == None:
@@ -115,6 +107,7 @@ def stop(service):
         return
 
     click.echo('Stopping %s service...' % service)
+
     os.kill(pid, 15)
     while True:
         if get_service_pid(service) == None:
@@ -124,10 +117,25 @@ def stop(service):
 
     click.echo('%s service is stopped.' % service)
 
+@click.group()
+def cli():
+    create_dir(LOG_DIR)
+
+@click.command()
+@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+def start(service):
+    start_service(service)
+
+@click.command()
+@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+def stop(service):
+    stop_service(service)
+
 @click.command()
 @click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
 def restart(service):
-    pass
+    stop_service(service)
+    start_service(service)
 
 @click.command()
 @click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
