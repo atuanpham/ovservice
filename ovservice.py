@@ -6,7 +6,7 @@ import subprocess
 #------------------------------------------------------------------------------#
 
 BASIC_SERVICES = ['activemq', 'mongodb', 'ovclient', 'tomcat']
-OTHER_SERVICES = ['sip', 'vmmanager', 'scheduler']
+OTHER_SERVICES = ['redis', 'sip', 'vmmanager', 'scheduler']
 
 NG_HOME = os.environ['NG_HOME']
 WRAPPER_CMD = NG_HOME + '/bin/wrapper/wrapper'
@@ -71,8 +71,8 @@ def delete_pid_file(service_name):
 
 def run_command(cmd, logfile=os.devnull):
     args = shlex.split(cmd)
-    with open(logfile, 'w') as logfile:
-        process = subprocess.Popen(args, stdout=logfile, stderr=subprocess.STDOUT)
+    with open(logfile, 'w') as f:
+        process = subprocess.Popen(args, stdout=f, stderr=subprocess.STDOUT)
     return process.pid
 
 
@@ -81,6 +81,19 @@ def start_mongodb():
     MONGO_CMD = SERVICES_DIR + '/mongodb/bin/mongod'
     cmd = MONGO_CMD + ' ' + MONGO_CONFIG
     service_log_file = get_service_log_file('mongodb')
+    return run_command(cmd, service_log_file)
+
+def start_redis():
+    REDIS_CONFIG = SERVICES_DIR + '/redis/redis.conf'
+    REDIS_CMD = SERVICES_DIR + '/redis/bin/redis-server'
+    cmd = REDIS_CMD + ' ' + REDIS_CONFIG
+    service_log_file = get_service_log_file('redis')
+    return run_command(cmd, service_log_file)
+
+def start_service_with_wrapper(service):
+    WRAPPER_CONFIG = SERVICES_DIR + '/' + service + '/wrapper.conf'
+    cmd = WRAPPER_CMD + ' ' + WRAPPER_CONFIG
+    service_log_file = get_service_log_file(service)
     return run_command(cmd, service_log_file)
 
 def start_service(service):
@@ -95,6 +108,10 @@ def start_service(service):
 
     if service == 'mongodb':
         pid = start_mongodb()
+    if service == 'redis':
+        pid = start_redis()
+    else:
+        pid = start_service_with_wrapper(service)
 
     store_pid(service, pid)
 
