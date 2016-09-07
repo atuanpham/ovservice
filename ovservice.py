@@ -61,6 +61,14 @@ def store_pid(service_name, pid):
     with open(service_pid_file, 'w') as pid_file:
         pid_file.write(str(pid))
 
+def delete_pid_file(service_name):
+    service_pid_file = get_service_pid_file(service_name)
+    try:
+        os.remove(service_pid_file)
+    except OSError:
+        return False
+    return True
+
 def run_command(cmd):
     args = shlex.split(cmd)
     with open(os.devnull, 'w') as devnull:
@@ -100,9 +108,23 @@ def start(service):
 @click.command()
 @click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
 def stop(service):
-    pass
+    pid = get_service_pid(service)
 
-@Click.command()
+    if pid == None:
+        click.echo('%s service is not started!' % service)
+        return
+
+    click.echo('Stopping %s service...' % service)
+    os.kill(pid, 15)
+    while True:
+        if get_service_pid(service) == None:
+            break
+
+    delete_pid_file(service)
+
+    click.echo('%s service is stopped.' % service)
+
+@click.command()
 @click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
 def restart(service):
     pass
@@ -115,3 +137,6 @@ def status(service):
 
 #------------------------------------------------------------------------------#
 cli.add_command(start)
+cli.add_command(status)
+cli.add_command(stop)
+cli.add_command(restart)
