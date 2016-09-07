@@ -3,14 +3,18 @@ import os
 import shlex
 import subprocess
 
-basic_services = ['activemq', 'mongodb', 'ovclient', 'tomcat']
-other_services = ['sip', 'vmmanager', 'scheduler']
+#------------------------------------------------------------------------------#
+
+BASIC_SERVICES = ['activemq', 'mongodb', 'ovclient', 'tomcat']
+OTHER_SERVICES = ['sip', 'vmmanager', 'scheduler']
 
 NG_HOME = os.environ['NG_HOME']
 WRAPPER_CMD = NG_HOME + '/bin/wrapper/wrapper'
 SERVICES_DIR = NG_HOME + '/services'
 
 LOG_DIR = '/tmp/ovservice'
+
+#------------------------------------------------------------------------------#
 
 def create_dir(dirname):
     try:
@@ -29,7 +33,7 @@ def get_service_log_file(service_name):
     service_log_dir = get_service_log_dir(service_name)
     return service_log_dir + '/' + service_name + '.log'
 
-def get_service_pid(service_name):
+def get_service_pid_from_pid_log_file(service_name):
     pid = None
     service_pid_file = get_service_pid_file(service_name)
     try:
@@ -39,11 +43,18 @@ def get_service_pid(service_name):
         pass
     return pid
 
-def is_existed_service(service_name):
-    pid = get_service_pid(service_name)
-    if pid != None:
-        return True
-    return False
+def get_service_pid(service_name):
+    pid = get_service_pid_from_pid_log_file(service_name)
+
+    if pid == None:
+        return None
+
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return None
+
+    return pid
 
 def store_pid(service_name, pid):
     service_pid_file = get_service_pid_file(service_name)
@@ -68,15 +79,16 @@ def cli():
     create_dir(LOG_DIR)
 
 @click.command()
-@click.argument('service', type=click.Choice(basic_services + other_services))
+@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
 def start(service):
-    click.echo('Starting %s service...' % service)
-
     service_log_dir = get_service_log_dir(service)
     create_dir(service_log_dir)
 
-    if is_existed_service(service):
+    if get_service_pid(service) != None:
+        click.echo('%s service has been started!' % service)
         return
+
+    click.echo('Starting %s service...' % service)
 
     if service == 'mongodb':
         pid = start_mongodb()
@@ -84,6 +96,22 @@ def start(service):
     store_pid(service, pid)
 
     click.echo('%s is started.' % service)
+
+@click.command()
+@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+def stop(service):
+    pass
+
+@Click.command()
+@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+def restart(service):
+    pass
+
+@click.command()
+@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+def status(service):
+    status = 'Running' if get_service_pid(service) != None else 'NOT Running'
+    click.echo('Status of %s service: %s' % (service, status))
 
 #------------------------------------------------------------------------------#
 cli.add_command(start)
