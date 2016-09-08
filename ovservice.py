@@ -2,6 +2,7 @@ import click
 import os
 import shlex
 import subprocess
+import psutil
 
 #------------------------------------------------------------------------------#
 
@@ -23,99 +24,47 @@ def create_dir(dirname):
     except OSError:
         pass
 
-def get_service_log_dir(service_name):
-    return LOG_DIR + '/' + service_name
-
-def get_service_pid_file(service_name):
-    service_log_dir= get_service_log_dir(service_name)
-    return service_log_dir + '/pid'
-
 def get_service_log_file(service_name):
-    service_log_dir = get_service_log_dir(service_name)
-    return service_log_dir + '/' + service_name + '.log'
+    return LOG_DIR + '/' + service_name + '.log'
 
-def get_service_pid_from_pid_log_file(service_name):
-    pid = None
-    service_pid_file = get_service_pid_file(service_name)
-    try:
-        with open(service_pid_file, 'r') as pid_file:
-            pid = int(pid_file.read())
-    except IOError:
-        pass
-    return pid
+def create_command(service):
+    config = None
+    cmd = None
+    if service == 'mongodb':
+        config = '--config ' + SERVICES_DIR + '/mongodb/mongodb.conf'
+        cmd = SERVICES_DIR + '/mongodb/bin/mongod'
+    elif service == 'redis':
+        config = SERVICES_DIR + '/redis/redis.conf'
+        cmd = SERVICES_DIR + '/redis/bin/redis-server'
+    else:
+        config = SERVICES_DIR + '/' + service + '/wrapper.conf'
+        cmd = WRAPPER_CMD
+
+    return shlex.split(cmd + ' ' + config)
 
 def get_service_pid(service_name):
-    pid = get_service_pid_from_pid_log_file(service_name)
+    cmd = create_command(service_name)
+    processes = psutil.process_iter()
+    for process in processes:
+        if cmd == process.cmdline():
+            return process.pid
 
-    if pid == None:
-        return None
-
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return None
-
-    return pid
-
-def store_pid(service_name, pid):
-    service_pid_file = get_service_pid_file(service_name)
-    with open(service_pid_file, 'w') as pid_file:
-        pid_file.write(str(pid))
-
-def delete_pid_file(service_name):
-    service_pid_file = get_service_pid_file(service_name)
-    try:
-        os.remove(service_pid_file)
-    except OSError:
-        return False
-    return True
-
-def run_command(cmd, logfile=os.devnull):
-    args = shlex.split(cmd)
+def run_command(args, logfile=os.devnull):
     with open(logfile, 'w') as f:
         process = subprocess.Popen(args, stdout=f, stderr=subprocess.STDOUT)
     return process.pid
 
 
-def start_mongodb():
-    MONGO_CONFIG = '--config ' + SERVICES_DIR + '/mongodb/mongodb.conf'
-    MONGO_CMD = SERVICES_DIR + '/mongodb/bin/mongod'
-    cmd = MONGO_CMD + ' ' + MONGO_CONFIG
-    service_log_file = get_service_log_file('mongodb')
-    return run_command(cmd, service_log_file)
-
-def start_redis():
-    REDIS_CONFIG = SERVICES_DIR + '/redis/redis.conf'
-    REDIS_CMD = SERVICES_DIR + '/redis/bin/redis-server'
-    cmd = REDIS_CMD + ' ' + REDIS_CONFIG
-    service_log_file = get_service_log_file('redis')
-    return run_command(cmd, service_log_file)
-
-def start_service_with_wrapper(service):
-    WRAPPER_CONFIG = SERVICES_DIR + '/' + service + '/wrapper.conf'
-    cmd = WRAPPER_CMD + ' ' + WRAPPER_CONFIG
-    service_log_file = get_service_log_file(service)
-    return run_command(cmd, service_log_file)
-
 def start_service(service):
-    service_log_dir = get_service_log_dir(service)
-    create_dir(service_log_dir)
-
     if get_service_pid(service) != None:
-        click.echo('%s service has been started!' % service)
+        click.echo('%s service has already been started!' % service)
         return
 
+    service_log_file = get_service_log_file(service)
+    command = create_command(service)
+
     click.echo('Starting %s service...' % service)
-
-    if service == 'mongodb':
-        pid = start_mongodb()
-    elif service == 'redis':
-        pid = start_redis()
-    else:
-        pid = start_service_with_wrapper(service)
-
-    store_pid(service, pid)
-
+    run_command(command, service_log_file)
     click.echo('%s is started.' % service)
 
 def stop_service(service):
@@ -131,8 +80,6 @@ def stop_service(service):
     while True:
         if get_service_pid(service) == None:
             break
-
-    delete_pid_file(service)
 
     click.echo('%s service is stopped.' % service)
 
