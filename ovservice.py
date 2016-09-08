@@ -7,6 +7,7 @@ import subprocess
 
 BASIC_SERVICES = ['activemq', 'mongodb', 'ovclient', 'tomcat']
 OTHER_SERVICES = ['redis', 'sip', 'vmmanager', 'scheduler']
+ACCEPT_SERVICES = ['basic'] + BASIC_SERVICES + OTHER_SERVICES
 
 NG_HOME = os.environ['NG_HOME']
 WRAPPER_CMD = NG_HOME + '/bin/wrapper/wrapper'
@@ -108,7 +109,7 @@ def start_service(service):
 
     if service == 'mongodb':
         pid = start_mongodb()
-    if service == 'redis':
+    elif service == 'redis':
         pid = start_redis()
     else:
         pid = start_service_with_wrapper(service)
@@ -140,23 +141,27 @@ def cli():
     create_dir(LOG_DIR)
 
 @click.command()
-@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+@click.argument('service', default='basic', type=click.Choice(ACCEPT_SERVICES))
 def start(service):
-    start_service(service)
+    service_list = [service]
+    if service == 'basic':
+        service_list = BASIC_SERVICES
+    for service_name in service_list:
+        start_service(service_name)
 
 @click.command()
-@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+@click.argument('service', type=click.Choice(ACCEPT_SERVICES))
 def stop(service):
     stop_service(service)
 
 @click.command()
-@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+@click.argument('service', type=click.Choice(ACCEPT_SERVICES))
 def restart(service):
     stop_service(service)
     start_service(service)
 
 @click.command()
-@click.argument('service', type=click.Choice(BASIC_SERVICES + OTHER_SERVICES))
+@click.argument('service', type=click.Choice(ACCEPT_SERVICES))
 def status(service):
     status = 'Running' if get_service_pid(service) != None else 'NOT Running'
     click.echo('Status of %s service: %s' % (service, status))
