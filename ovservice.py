@@ -122,8 +122,13 @@ def stop_list_of_services(services):
         if not is_success:
             click.echo('%s service is not running!' % service)
 
-def show_status_all_services():
-    pass
+def show_status_of_service_list(service_list):
+    for service in service_list:
+        try:
+            pid = get_service_pid(service)
+            click.echo('%s service is RUNNING. - pid: %s' % (service, pid))
+        except OVServiceNotRunning:
+            click.echo('%s service is NOT RUNNING.' % service)
 
 @click.group()
 def cli():
@@ -133,11 +138,14 @@ def cli():
 @click.option('--basic', is_flag=True)
 @click.argument('service', required=False, type=click.Choice(ACCEPT_SERVICES))
 def start(basic, service):
-    service_list = None
+    service_list = BASIC_SERVICES
+
+    if service != None:
+        service_list = [service]
+
     if basic:
         service_list = BASIC_SERVICES
-    else:
-        service_list = [service]
+
     start_list_of_services(service_list)
 
 @click.command()
@@ -145,13 +153,17 @@ def start(basic, service):
 @click.option('--all', is_flag=True)
 @click.argument('service', required=False, type=click.Choice(ACCEPT_SERVICES))
 def stop(basic, all, service):
-    service_list = None
+    service_list = ACCEPT_SERVICES
+
+    if service != None:
+        service_list = [service]
+
     if basic:
         service_list = BASIC_SERVICES
-    elif all:
+
+    if all:
         service_list = ACCEPT_SERVICES
-    else:
-        service_list = [service]
+
     stop_list_of_services(service_list)
 
 @click.command()
@@ -161,13 +173,18 @@ def restart(service):
     start_service(service)
 
 @click.command()
-@click.argument('service', type=click.Choice(ACCEPT_SERVICES))
-def status(service):
-    try:
-        pid = get_service_pid(service)
-        click.echo('%s service is RUNNING - pid: %s' % (service, pid))
-    except OVServiceNotRunning:
-        click.echo('%s service is NOT RUNNING.' % service)
+@click.option('--all', is_flag=True)
+@click.argument('service', required=False, type=click.Choice(ACCEPT_SERVICES))
+def status(all, service):
+    service_list = ACCEPT_SERVICES
+
+    if service != None:
+        service_list = [service]
+
+    if all:
+        service_list = ACCEPT_SERVICES
+
+    show_status_of_service_list(service_list)
 
 #------------------------------------------------------------------------------#
 cli.add_command(start)
