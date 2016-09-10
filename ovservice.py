@@ -30,7 +30,7 @@ OTHER_SERVICES = [
         'workerpoller',
         'hsqldb'
         ]
-ACCEPT_SERVICES = ['basic'] + BASIC_SERVICES + OTHER_SERVICES
+ACCEPT_SERVICES = BASIC_SERVICES + OTHER_SERVICES
 
 NG_HOME = os.environ['NG_HOME']
 WRAPPER_CMD = NG_HOME + '/bin/wrapper/wrapper'
@@ -72,6 +72,14 @@ def get_service_pid(service_name):
             return process.pid
     raise OVServiceNotRunning("%s service is not running!" % service_name)
 
+def wait_until_service_stopped(service_name):
+    while True:
+        try:
+            pid = get_service_pid(service_name)
+        except OVServiceNotRunning:
+            break
+    return True
+
 def run_command(args, logfile=os.devnull):
     with open(logfile, 'w') as f:
         process = subprocess.Popen(args, stdout=f, stderr=subprocess.STDOUT)
@@ -93,20 +101,26 @@ def start_service(service):
     run_command(command, service_log_file)
     click.echo('%s is started.' % service)
 
+def start_list_of_services(services):
+    for service in services:
+        start_service(service)
+
 def stop_service(service):
     try:
         pid = get_service_pid(service)
         click.echo('Stopping %s service...' % service)
         os.kill(pid, 15)
-        while True:
-            if get_service_pid(service) == None:
-                break
+        wait_until_service_stopped(service)
         click.echo('%s service is stopped.' % service)
+        return True
     except OVServiceNotRunning:
-        raise OVServiceNotRunning
+        return False
 
-def stop_all_running_services():
-    pass
+def stop_list_of_services(services):
+    for service in services:
+        is_success = stop_service(service)
+        if not is_success:
+            click.echo('%s service is not running!' % service)
 
 def show_status_all_services():
     pass
@@ -116,25 +130,29 @@ def cli():
     create_dir(LOG_DIR)
 
 @click.command()
-@click.argument('service', default='basic', type=click.Choice(ACCEPT_SERVICES))
-def start(service):
-    service_list = [service]
-    if service == 'basic':
+@click.option('--basic', is_flag=True)
+@click.argument('service', required=False, type=click.Choice(ACCEPT_SERVICES))
+def start(basic, service):
+    service_list = None
+    if basic:
         service_list = BASIC_SERVICES
-    for service_name in service_list:
-        start_service(service_name)
+    else:
+        service_list = [service]
+    start_list_of_services(service_list)
 
 @click.command()
-@click.argument('service', default='basic', type=click.Choice(ACCEPT_SERVICES))
-def stop(service):
-    service_list = [service]
-    if service == 'basic':
+@click.option('--basic', is_flag=True)
+@click.option('--all', is_flag=True)
+@click.argument('service', required=False, type=click.Choice(ACCEPT_SERVICES))
+def stop(basic, all, service):
+    service_list = None
+    if basic:
         service_list = BASIC_SERVICES
-    for service_name in service_list:
-        try:
-            stop_service(service)
-        except OVServiceNotRunning:
-            click.echo('%s service is not running!' % service_name)
+    elif all:
+        service_list = ACCEPT_SERVICES
+    else:
+        service_list = [service]
+    stop_list_of_services(service_list)
 
 @click.command()
 @click.argument('service', type=click.Choice(ACCEPT_SERVICES))
