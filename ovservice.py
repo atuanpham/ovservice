@@ -70,6 +70,7 @@ def get_service_pid(service_name):
     for process in processes:
         if cmd == process.cmdline():
             return process.pid
+    raise OVServiceNotRunning("%s service is not running!" % service_name)
 
 def run_command(args, logfile=os.devnull):
     with open(logfile, 'w') as f:
@@ -78,9 +79,12 @@ def run_command(args, logfile=os.devnull):
 
 
 def start_service(service):
-    if get_service_pid(service) != None:
+    try:
+        pid = get_service_pid(service)
         click.echo('%s service has already been started!' % service)
         return
+    except OVServiceNotRunning:
+        pass
 
     service_log_file = get_service_log_file(service)
     command = create_command(service)
@@ -90,20 +94,16 @@ def start_service(service):
     click.echo('%s is started.' % service)
 
 def stop_service(service):
-    pid = get_service_pid(service)
-
-    if pid == None:
-        click.echo('%s service is not started!' % service)
-        return
-
-    click.echo('Stopping %s service...' % service)
-
-    os.kill(pid, 15)
-    while True:
-        if get_service_pid(service) == None:
-            break
-
-    click.echo('%s service is stopped.' % service)
+    try:
+        pid = get_service_pid(service)
+        click.echo('Stopping %s service...' % service)
+        os.kill(pid, 15)
+        while True:
+            if get_service_pid(service) == None:
+                break
+        click.echo('%s service is stopped.' % service)
+    except OVServiceNotRunning:
+        raise OVServiceNotRunning
 
 def stop_all_running_services():
     pass
@@ -131,7 +131,10 @@ def stop(service):
     if service == 'basic':
         service_list = BASIC_SERVICES
     for service_name in service_list:
-        stop_service(service)
+        try:
+            stop_service(service)
+        except OVServiceNotRunning:
+            click.echo('%s service is not running!' % service_name)
 
 @click.command()
 @click.argument('service', type=click.Choice(ACCEPT_SERVICES))
@@ -142,8 +145,11 @@ def restart(service):
 @click.command()
 @click.argument('service', type=click.Choice(ACCEPT_SERVICES))
 def status(service):
-    status = 'Running' if get_service_pid(service) != None else 'NOT Running'
-    click.echo('Status of %s service: %s' % (service, status))
+    try:
+        pid = get_service_pid(service)
+        click.echo('%s service is RUNNING - pid: %s' % (service, pid))
+    except OVServiceNotRunning:
+        click.echo('%s service is NOT RUNNING.' % service)
 
 #------------------------------------------------------------------------------#
 cli.add_command(start)
