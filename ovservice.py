@@ -6,8 +6,22 @@ import psutil
 
 #------------------------------------------------------------------------------#
 
-BASIC_SERVICES = ['activemq', 'mongodb', 'ovclient', 'tomcat']
-OTHER_SERVICES = ['redis', 'sip', 'vmmanager', 'scheduler']
+BASIC_SERVICES = [
+        'activemq',
+        'mongodb',
+        'ovclient',
+        'tomcat'
+        ]
+OTHER_SERVICES = [
+        'redis',
+        'sip',
+        'vmmanager',
+        'scheduler',
+        'dal',
+        'masterpoller',
+        'workerpoller',
+        'hsqldb'
+        ]
 ACCEPT_SERVICES = ['basic'] + BASIC_SERVICES + OTHER_SERVICES
 
 NG_HOME = os.environ['NG_HOME']
@@ -83,6 +97,12 @@ def stop_service(service):
 
     click.echo('%s service is stopped.' % service)
 
+def stop_all_running_services():
+    pass
+
+def show_status_all_services():
+    pass
+
 @click.group()
 def cli():
     create_dir(LOG_DIR)
@@ -97,9 +117,13 @@ def start(service):
         start_service(service_name)
 
 @click.command()
-@click.argument('service', type=click.Choice(ACCEPT_SERVICES))
+@click.argument('service', default='basic', type=click.Choice(ACCEPT_SERVICES))
 def stop(service):
-    stop_service(service)
+    service_list = [service]
+    if service == 'basic':
+        service_list = BASIC_SERVICES
+    for service_name in service_list:
+        stop_service(service)
 
 @click.command()
 @click.argument('service', type=click.Choice(ACCEPT_SERVICES))
