@@ -6,6 +6,14 @@ import psutil
 
 #------------------------------------------------------------------------------#
 
+class OVError(Exception):
+    pass
+
+class OVServiceNotRunning(OVError):
+    pass
+
+#------------------------------------------------------------------------------#
+
 BASIC_SERVICES = [
         'activemq',
         'mongodb',
